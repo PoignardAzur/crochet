@@ -1,10 +1,12 @@
 use crate::{Cx, Id};
+use crate::any_widget::DruidAppData;
+
 use crate::react_widgets::{WidgetSequence, SingleWidget, WidgetTuple, WidgetList};
+use crate::react_widgets::make_button;
 
 // TODO - refactor away WidgetPod
 use druid::WidgetPod;
 use druid::widget as druid_w;
-
 // TODO
 //
 // Rename VirtualDom
@@ -50,7 +52,7 @@ impl<ParentComponentState> VirtualDom<ParentComponentState> for LabelTarget<Pare
     type DomState = Id;
     type AggregateComponentState = ();
 
-    type TargetWidget = SingleWidget<druid_w::Label<()>>;
+    type TargetWidget = SingleWidget<druid_w::Label<DruidAppData>>;
 
     fn update_value(&mut self, other: Self) {
         *self = other;
@@ -85,12 +87,17 @@ pub struct ButtonTarget<ParentComponentState>(pub String, pub std::marker::Phant
 
 pub struct ButtonPressed();
 
+use druid::widget::ControllerHost;
+use druid::widget::Click;
+use druid::widget::Button;
+
 impl<ParentComponentState> VirtualDom<ParentComponentState> for ButtonTarget<ParentComponentState> {
     type Event = ButtonPressed;
     type DomState = Id;
     type AggregateComponentState = ();
 
-    type TargetWidget = SingleWidget<druid_w::Button<()>>;
+    // FIXME
+    type TargetWidget = SingleWidget<ControllerHost<Button<DruidAppData>, Click<DruidAppData>>>;
 
     fn update_value(&mut self, other: Self) {
         *self = other;
@@ -99,8 +106,7 @@ impl<ParentComponentState> VirtualDom<ParentComponentState> for ButtonTarget<Par
     fn init_tree(&self, _cx: &mut Cx) -> (Self::TargetWidget, Id) {
         let text = &self.0;
         let id = Id::new();
-        let button = druid_w::Button::new(text.clone());
-        (SingleWidget(WidgetPod::new(button)), id)
+        (make_button(text.clone(), id), id)
     }
 
     fn apply_diff(&self, _other: &Self, prev_state: Self::DomState, _widget: &mut Self::TargetWidget, _cx: &mut Cx) -> Id {
@@ -228,7 +234,7 @@ impl<ParentComponentState> VirtualDom<ParentComponentState> for EmptyElementTarg
     type DomState = ();
     type AggregateComponentState = ();
 
-    type TargetWidget = SingleWidget<druid_w::Flex<()>>;
+    type TargetWidget = SingleWidget<druid_w::Flex<DruidAppData>>;
 
     fn update_value(&mut self, _other: Self) {}
 

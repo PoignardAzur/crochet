@@ -1,36 +1,39 @@
 use druid::kurbo::{Rect, Size};
 
+#[allow(unused_imports)]
 use druid::{
     BoxConstraints, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx,
     PaintCtx, UpdateCtx, Widget, WidgetPod,
 };
+use druid::widget::Button;
 use crate::flex2::FlexParams;
+use crate::any_widget::DruidAppData;
 
 
 pub trait FlexWidget {
-    fn widget(&mut self) -> &mut dyn Widget<()>;
+    fn widget(&mut self) -> &mut dyn Widget<DruidAppData>;
     fn flex_params(&self) -> FlexParams;
 
-    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, env: &Env) -> Size;
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut DruidAppData, env: &Env);
+    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &DruidAppData, env: &Env);
+    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &DruidAppData, data: &DruidAppData, env: &Env);
+
+    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &DruidAppData, env: &Env) -> Size;
     fn paint_rect(&self) -> Rect;
-    fn set_layout_rect(&mut self, ctx: &mut LayoutCtx, env: &Env, rect: Rect);
+    fn set_layout_rect(&mut self, ctx: &mut LayoutCtx, data: &DruidAppData, env: &Env, rect: Rect);
     fn layout_rect(&self) -> Rect;
-    fn paint(&mut self, ctx: &mut PaintCtx, env: &Env);
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &DruidAppData, env: &Env);
 }
 
 pub trait WidgetSequence {
     fn widgets(&mut self) -> Vec<&mut dyn FlexWidget>;
-
-    fn event(&mut self, ctx: &mut EventCtx, event: &Event, env: &Env);
-    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, env: &Env);
-    fn update(&mut self, ctx: &mut UpdateCtx, env: &Env);
 }
 
 
-pub struct SingleWidget<W: Widget<()>>(pub WidgetPod<(), W>);
+pub struct SingleWidget<W: Widget<DruidAppData>>(pub WidgetPod<DruidAppData, W>);
 
-impl<W: Widget<()>> FlexWidget for SingleWidget<W> {
-    fn widget(&mut self) -> &mut dyn Widget<()> {
+impl<W: Widget<DruidAppData>> FlexWidget for SingleWidget<W> {
+    fn widget(&mut self) -> &mut dyn Widget<DruidAppData> {
         self.0.widget_mut()
     }
 
@@ -41,43 +44,58 @@ impl<W: Widget<()>> FlexWidget for SingleWidget<W> {
         }
     }
 
-    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, env: &Env) -> Size {
-        self.0.layout(ctx, bc, &(), env)
+
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut DruidAppData, env: &Env) {
+        self.0.event(ctx, event, data, env);
+    }
+
+    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &DruidAppData, env: &Env) {
+        self.0.lifecycle(ctx, event, data, env);
+    }
+
+    fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &DruidAppData, data: &DruidAppData, env: &Env) {
+        self.0.update(ctx, data, env);
+    }
+
+
+    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &DruidAppData, env: &Env) -> Size {
+        self.0.layout(ctx, bc, data, env)
     }
 
     fn paint_rect(&self) -> Rect {
         self.0.paint_rect()
     }
 
-    fn set_layout_rect(&mut self, ctx: &mut LayoutCtx, env: &Env, rect: Rect) {
-        self.0.set_layout_rect(ctx, &(), env, rect)
+    fn set_layout_rect(&mut self, ctx: &mut LayoutCtx, data: &DruidAppData, env: &Env, rect: Rect) {
+        self.0.set_layout_rect(ctx, data, env, rect)
     }
 
     fn layout_rect(&self) -> Rect {
         self.0.layout_rect()
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, env: &Env) {
-        self.0.paint(ctx, &(), env);
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &DruidAppData, env: &Env) {
+        self.0.paint(ctx, data, env);
     }
 }
 
-impl<W: Widget<()>> WidgetSequence for SingleWidget<W> {
+impl<W: Widget<DruidAppData>> WidgetSequence for SingleWidget<W> {
     fn widgets(&mut self) -> Vec<&mut dyn FlexWidget> {
         vec![self]
     }
+}
 
-    fn event(&mut self, ctx: &mut EventCtx, event: &Event, env: &Env) {
-        self.0.event(ctx, event, &mut (), env);
-    }
+use crate::Id;
+use crate::any_widget::Action;
+use druid::widget::ControllerHost;
+use druid::widget::Click;
+pub fn make_button(text: String, id: Id) -> SingleWidget<ControllerHost<Button<DruidAppData>, Click<DruidAppData>>> {
+    let button = Button::new(text)
+        .on_click(move |_, data: &mut DruidAppData, _| {
+            data.queue_action(id, Action::Clicked)
+        });
 
-    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, env: &Env) {
-        self.0.lifecycle(ctx, event, &(), env);
-    }
-
-    fn update(&mut self, ctx: &mut UpdateCtx, env: &Env) {
-        self.0.update(ctx, &(), env);
-    }
+    SingleWidget(WidgetPod::new(button))
 }
 
 
@@ -108,27 +126,6 @@ impl<
         all_widgets.append(&mut self.3.widgets());
         all_widgets
     }
-
-    fn event(&mut self, ctx: &mut EventCtx, event: &Event, env: &Env) {
-        self.0.event(ctx, event, env);
-        self.1.event(ctx, event, env);
-        self.2.event(ctx, event, env);
-        self.3.event(ctx, event, env);
-    }
-
-    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, env: &Env) {
-        self.0.lifecycle(ctx, event, env);
-        self.1.lifecycle(ctx, event, env);
-        self.2.lifecycle(ctx, event, env);
-        self.3.lifecycle(ctx, event, env);
-    }
-
-    fn update(&mut self, ctx: &mut UpdateCtx, env: &Env) {
-        self.0.update(ctx, env);
-        self.1.update(ctx, env);
-        self.2.update(ctx, env);
-        self.3.update(ctx, env);
-    }
 }
 
 
@@ -139,26 +136,5 @@ pub struct WidgetList<Child: WidgetSequence> {
 impl<Child: WidgetSequence> WidgetSequence for WidgetList<Child> {
     fn widgets(&mut self) -> Vec<&mut dyn FlexWidget> {
         self.children.iter_mut().flat_map(|child| child.widgets()).collect()
-    }
-
-    fn event(&mut self, ctx: &mut EventCtx, event: &Event, env: &Env) {
-        match event {
-            _ => (),
-        }
-        for child in &mut self.children {
-            child.event(ctx, event, env);
-        }
-    }
-
-    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, env: &Env) {
-        for child in &mut self.children {
-            child.lifecycle(ctx, event, env);
-        }
-    }
-
-    fn update(&mut self, ctx: &mut UpdateCtx, env: &Env) {
-        for child in &mut self.children {
-            child.update(ctx, env);
-        }
     }
 }

@@ -377,8 +377,8 @@ pub struct ReactApp<
     pub component_state: (RootCompState, ReturnedTree::AggregateState),
     pub vdom: Option<ReturnedTree::Target>,
     pub vdom_state: Option<<ReturnedTree::Target as VirtualDom<RootCompState>>::DomState>,
-    pub default_widget: WidgetPod<(), widget::Flex<()>>,
-    pub widget: Option<WidgetPod<(), flex2::Flex<WidgetSeqOf<RootCompState, ReturnedTree>>>>,
+    pub default_widget: WidgetPod<DruidAppData, widget::Flex<DruidAppData>>,
+    pub widget: Option<WidgetPod<DruidAppData, flex2::Flex<WidgetSeqOf<RootCompState, ReturnedTree>>>>,
 }
 
 impl<
@@ -461,27 +461,28 @@ impl<
         let tree: Tree = Default::default();
         let resolved_futures = Default::default();
         let event_sink = ctx.get_external_handle();
-        let mut cx = Cx::new(&tree, data, &resolved_futures, &event_sink);
-        self.run(&mut cx);
 
         if let Some(widget) = &mut self.widget {
-            widget.event(ctx, event, &mut (), env);
+            widget.event(ctx, event, data, env);
         } else {
-            self.default_widget.event(ctx, event, &mut (), env);
+            self.default_widget.event(ctx, event, data, env);
         }
+
+        let mut cx = Cx::new(&tree, data, &resolved_futures, &event_sink);
+        self.run(&mut cx);
     }
 
     fn lifecycle(
         &mut self,
         ctx: &mut LifeCycleCtx,
         event: &LifeCycle,
-        _data: &DruidAppData,
+        data: &DruidAppData,
         env: &Env,
     ) {
         if let Some(widget) = &mut self.widget {
-            widget.lifecycle(ctx, event, &(), env);
+            widget.lifecycle(ctx, event, data, env);
         } else {
-            self.default_widget.lifecycle(ctx, event, &(), env);
+            self.default_widget.lifecycle(ctx, event, data, env);
         }
     }
 
@@ -489,13 +490,13 @@ impl<
         &mut self,
         ctx: &mut UpdateCtx,
         _old_data: &DruidAppData,
-        _data: &DruidAppData,
+        data: &DruidAppData,
         env: &Env,
     ) {
         if let Some(widget) = &mut self.widget {
-            widget.update(ctx, &(), env);
+            widget.update(ctx, data, env);
         } else {
-            self.default_widget.update(ctx, &(), env);
+            self.default_widget.update(ctx, data, env);
         }
     }
 
@@ -503,27 +504,27 @@ impl<
         &mut self,
         ctx: &mut LayoutCtx,
         bc: &BoxConstraints,
-        _data: &DruidAppData,
+        data: &DruidAppData,
         env: &Env,
     ) -> Size {
         let size;
 
         if let Some(widget) = &mut self.widget {
-            size = widget.layout(ctx, bc, &(), env);
-            widget.set_layout_rect(ctx, &(), env, (Point::ZERO, size).into());
+            size = widget.layout(ctx, bc, data, env);
+            widget.set_layout_rect(ctx, data, env, (Point::ZERO, size).into());
         } else {
-            size = self.default_widget.layout(ctx, bc, &(), env);
-            self.default_widget.set_layout_rect(ctx, &(), env, (Point::ZERO, size).into());
+            size = self.default_widget.layout(ctx, bc, data, env);
+            self.default_widget.set_layout_rect(ctx, data, env, (Point::ZERO, size).into());
         }
 
         size
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, _data: &DruidAppData, env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &DruidAppData, env: &Env) {
         if let Some(widget) = &mut self.widget {
-            widget.paint(ctx, &(), env);
+            widget.paint(ctx, data, env);
         } else {
-            self.default_widget.paint(ctx, &(), env);
+            self.default_widget.paint(ctx, data, env);
         }
     }
 }

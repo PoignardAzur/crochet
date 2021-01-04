@@ -308,10 +308,11 @@ impl Axis {
 }
 
 
-impl<Children: WidgetSequence> Widget<()> for Flex<Children> {
-    fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut (), env: &Env) {
+use crate::any_widget::DruidAppData;
+impl<Children: WidgetSequence> Widget<DruidAppData> for Flex<Children> {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut DruidAppData, env: &Env) {
         for child in self.children_seq.widgets() {
-            child.widget().event(ctx, event, &mut (), env);
+            child.event(ctx, event, data, env);
         }
     }
 
@@ -319,23 +320,23 @@ impl<Children: WidgetSequence> Widget<()> for Flex<Children> {
         &mut self,
         ctx: &mut LifeCycleCtx,
         event: &LifeCycle,
-        _data: &(),
+        data: &DruidAppData,
         env: &Env,
     ) {
         for child in self.children_seq.widgets() {
-            child.widget().lifecycle(ctx, event, &(), env);
+            child.lifecycle(ctx, event, data, env);
         }
     }
 
     fn update(
         &mut self,
         ctx: &mut UpdateCtx,
-        _old_data: &(),
-        _data: &(),
+        old_data: &DruidAppData,
+        data: &DruidAppData,
         env: &Env,
     ) {
         for child in self.children_seq.widgets() {
-            child.widget().update(ctx, &(), &(), env);
+            child.update(ctx, old_data, data, env);
         }
     }
 
@@ -343,7 +344,7 @@ impl<Children: WidgetSequence> Widget<()> for Flex<Children> {
         &mut self,
         ctx: &mut LayoutCtx,
         bc: &BoxConstraints,
-        _data: &(),
+        data: &DruidAppData,
         env: &Env,
     ) -> Size {
         use log::warn;
@@ -360,7 +361,7 @@ impl<Children: WidgetSequence> Widget<()> for Flex<Children> {
                 let child_bc = self
                     .direction
                     .constraints(&loosened_bc, 0., std::f64::INFINITY);
-                let child_size = child.layout(ctx, &child_bc, env);
+                let child_size = child.layout(ctx, &child_bc, data, env);
 
                 if child_size.width.is_infinite() {
                     warn!("A non-Flex child has an infinite width.");
@@ -374,7 +375,7 @@ impl<Children: WidgetSequence> Widget<()> for Flex<Children> {
                 minor = minor.max(self.direction.minor(child_size).expand());
                 // Stash size.
                 let rect = Rect::from_origin_size(Point::ORIGIN, child_size);
-                child.set_layout_rect(ctx, env, rect);
+                child.set_layout_rect(ctx, data, env, rect);
             }
         }
 
@@ -395,13 +396,13 @@ impl<Children: WidgetSequence> Widget<()> for Flex<Children> {
                 let child_bc = self
                     .direction
                     .constraints(&loosened_bc, min_major, actual_major);
-                let child_size = child.layout(ctx, &child_bc, env);
+                let child_size = child.layout(ctx, &child_bc, data, env);
 
                 major_flex += self.direction.major(child_size).expand();
                 minor = minor.max(self.direction.minor(child_size).expand());
                 // Stash size.
                 let rect = Rect::from_origin_size(Point::ORIGIN, child_size);
-                child.set_layout_rect(ctx, env, rect);
+                child.set_layout_rect(ctx, data, env, rect);
             }
         }
 
@@ -425,7 +426,7 @@ impl<Children: WidgetSequence> Widget<()> for Flex<Children> {
             let align_minor = alignment.align(extra_minor);
             let pos: Point = self.direction.pack(major, align_minor).into();
 
-            child.set_layout_rect(ctx, env, rect.with_origin(pos));
+            child.set_layout_rect(ctx, data, env, rect.with_origin(pos));
             child_paint_rect = child_paint_rect.union(child.paint_rect());
             major += self.direction.major(rect.size()).expand();
             major += spacing.next().unwrap_or(0.);
@@ -457,9 +458,9 @@ impl<Children: WidgetSequence> Widget<()> for Flex<Children> {
         my_size
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, _data: &(), env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &DruidAppData, env: &Env) {
         for child in self.children_seq.widgets() {
-            child.paint(ctx, env);
+            child.paint(ctx, data, env);
         }
     }
 }
